@@ -7,6 +7,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 
 import structlog
+from redis.asyncio import Redis
 from sqlalchemy import and_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
