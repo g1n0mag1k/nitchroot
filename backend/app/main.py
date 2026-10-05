@@ -18,7 +18,6 @@ from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
 
 from app.api.health import router as health_router
-from app.api.merchants import router as merchants_router
 from app.api.webhooks import router as webhook_router
 from app.core.config import get_settings
 from app.core.logging import configure_logging, get_logger
@@ -61,8 +60,7 @@ def create_app() -> FastAPI:
         title=settings.app_name,
         version=settings.app_version,
         description=(
-            "Zero-friction payment rail sentry and automated "
-            "ledger reconciliation sentinel."
+            "Zero-friction payment rail sentry and automated ledger reconciliation sentinel."
         ),
         docs_url="/docs" if not settings.is_production else None,
         redoc_url="/redoc" if not settings.is_production else None,
@@ -82,7 +80,6 @@ def create_app() -> FastAPI:
     # Routers
     # ------------------------------------------------------------------ #
     app.include_router(health_router)
-    app.include_router(merchants_router)
     app.include_router(webhook_router)
 
     # ------------------------------------------------------------------ #

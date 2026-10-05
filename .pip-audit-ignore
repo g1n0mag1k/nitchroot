@@ -1,0 +1,5 @@
+# pip-audit vulnerability allowlist (expires required for each entry).
+# Format: CVE-ID  # expires: YYYY-MM-DD  reason
+#
+# No vulnerabilities are ignored at this time. Add entries only with an expiry
+# date and justification when a fix is not yet available.

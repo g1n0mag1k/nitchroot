@@ -1,0 +1,12 @@
+title = "SnitchRoot gitleaks config"
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "CI/test placeholder Stripe material only"
+regexTarget = "line"
+regexes = [
+  '''rk_test_placeholder_[A-Za-z0-9_]+''',
+  '''whsec_placeholder_[A-Za-z0-9_]+''',
+]

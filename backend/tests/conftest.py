@@ -8,26 +8,38 @@ Provides:
   - client: async HTTPX test client
 """
 
+import os
 from collections.abc import AsyncGenerator
 from unittest.mock import AsyncMock
 
 import pytest
-from app.core.config import get_settings
-from app.main import create_app
 from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
 
 
+def pytest_configure() -> None:
+    """Set test env vars before application modules (rate limiter) are imported."""
+    os.environ.setdefault("ENVIRONMENT", "test")
+    os.environ.setdefault("LOG_LEVEL", "WARNING")
+    os.environ.setdefault(
+        "DATABASE_URL",
+        "postgresql+asyncpg://snitchroot:snitchroot_test@localhost:5432/snitchroot_test",
+    )
+    os.environ.setdefault("REDIS_URL", "redis://localhost:6379/0")
+    os.environ.setdefault("STRIPE_RESTRICTED_KEY", "rk_test_placeholder_do_not_use")
+    os.environ.setdefault("STRIPE_WEBHOOK_SECRET", "whsec_placeholder_do_not_use")
+    os.environ.setdefault("SECRET_KEY", "a" * 64)
+    os.environ.setdefault("RATELIMIT_ENABLED", "false")
+
+
 @pytest.fixture(autouse=True)
 def reset_rate_limits() -> None:
-    """Clear slowapi counters between tests."""
-    from app.core.rate_limit import limiter
+    """Clear cached limiter instances between tests (no Redis flush)."""
+    from app.core.rate_limit import get_limiter
 
-    if hasattr(limiter, "reset"):
-        limiter.reset()
+    get_limiter.cache_clear()
     yield
-    if hasattr(limiter, "reset"):
-        limiter.reset()
+    get_limiter.cache_clear()
 
 
 @pytest.fixture(autouse=True)
@@ -38,7 +50,11 @@ def settings_override(monkeypatch: pytest.MonkeyPatch) -> None:
     Clears the lru_cache so each test session gets a fresh Settings
     instance loaded from the test environment variables.
     """
+    from app.core.config import get_settings
+    from app.core.rate_limit import get_limiter
+
     get_settings.cache_clear()
+    get_limiter.cache_clear()
     monkeypatch.setenv("ENVIRONMENT", "test")
     monkeypatch.setenv("LOG_LEVEL", "WARNING")
     monkeypatch.setenv(
@@ -49,9 +65,9 @@ def settings_override(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("STRIPE_RESTRICTED_KEY", "rk_test_placeholder_do_not_use")
     monkeypatch.setenv("STRIPE_WEBHOOK_SECRET", "whsec_placeholder_do_not_use")
     monkeypatch.setenv("SECRET_KEY", "a" * 64)
+    monkeypatch.setenv("RATELIMIT_ENABLED", "false")
     yield
     get_settings.cache_clear()
-    # Clear Redis pool cache so later tests never reuse a real/stale pool.
     try:
         from app.core.redis import _get_redis_pool
 
@@ -70,6 +86,7 @@ def mock_redis() -> AsyncMock:
 async def test_app(mock_redis: AsyncMock) -> AsyncGenerator[FastAPI, None]:
     """Yield a FastAPI app with Redis dependency overridden (no live Redis)."""
     from app.core.redis import get_redis
+    from app.main import create_app
 
     app = create_app()
     app.dependency_overrides[get_redis] = lambda: mock_redis

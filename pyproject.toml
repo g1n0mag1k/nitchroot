@@ -59,7 +59,7 @@ select = ["E","W","F","I","B","C4","UP","N","ANN","S","RUF"]
 ignore = ["ANN101","ANN102","S101"]
 
 [tool.ruff.lint.per-file-ignores]
-"backend/tests/**/*.py" = ["ANN", "S"]
+"backend/tests/**/*.py" = ["ANN", "S", "SLF001"]
 "backend/app/core/logging.py" = ["ANN401"]
 
 [tool.ruff.format]
@@ -79,6 +79,9 @@ ignore_missing_imports = true
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 testpaths = ["backend/tests"]
+markers = [
+    "integration: tests that require external services such as Redis",
+]
 addopts = [
     "--cov=backend/app",
     "--cov-report=term-missing",
