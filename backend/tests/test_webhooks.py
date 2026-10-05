@@ -8,10 +8,13 @@ from __future__ import annotations
 import json
 from datetime import UTC, datetime
 from unittest.mock import AsyncMock, MagicMock, patch
+from uuid import UUID
 
 import pytest
 import stripe
 from httpx import AsyncClient
+
+_TEST_MERCHANT_ID = "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
 
 # ── helpers ──────────────────────────────────────────────────────────────────
 
@@ -32,7 +35,10 @@ def _make_stripe_event(
     obj.status = object_status
     obj.amount = amount
     obj.currency = currency
-    obj.metadata = metadata or {"merchant_id": "merch_123", "source": "snitchroot_probe"}
+    obj.metadata = metadata or {
+        "merchant_id": _TEST_MERCHANT_ID,
+        "source": "snitchroot_probe",
+    }
 
     event_data = MagicMock()
     event_data.object = obj
@@ -79,7 +85,7 @@ class TestNormalizer:
 
         event = _make_stripe_event(
             metadata={
-                "merchant_id": "merch_123",
+                "merchant_id": _TEST_MERCHANT_ID,
                 "customer_email": "user@example.com",  # PII — must be stripped
                 "customer_name": "Jane Doe",  # PII — must be stripped
                 "safe_key": "safe_value",
@@ -88,7 +94,7 @@ class TestNormalizer:
         result = normalize_stripe_event(event)
         assert "customer_email" not in result.metadata
         assert "customer_name" not in result.metadata
-        assert result.metadata.get("merchant_id") == "merch_123"
+        assert result.metadata.get("merchant_id") == _TEST_MERCHANT_ID
         assert result.metadata.get("safe_key") == "safe_value"
 
     def test_payout_event_normalized(self) -> None:
@@ -196,7 +202,7 @@ VALID_PAYLOAD = json.dumps(
                 "amount": 5000,
                 "currency": "usd",
                 "status": "succeeded",
-                "metadata": {"merchant_id": "merch_123"},
+                "metadata": {"merchant_id": _TEST_MERCHANT_ID},
             }
         },
     }
@@ -204,6 +210,15 @@ VALID_PAYLOAD = json.dumps(
 
 
 class TestWebhookEndpoint:
+    @pytest.fixture
+    def mock_db(self) -> AsyncMock:
+        session = AsyncMock()
+        session.add = MagicMock()
+        session.commit = AsyncMock()
+        session.rollback = AsyncMock()
+        session.close = AsyncMock()
+        return session
+
     @pytest.mark.asyncio
     async def test_missing_signature_returns_400(self, client: AsyncClient) -> None:
         response = await client.post(
@@ -233,7 +248,19 @@ class TestWebhookEndpoint:
         assert "Invalid Stripe signature" in response.json()["detail"]
 
     @pytest.mark.asyncio
-    async def test_valid_event_accepted(self, client: AsyncClient, mock_redis: AsyncMock) -> None:
+    async def test_valid_event_accepted(
+        self,
+        test_app,
+        client: AsyncClient,
+        mock_redis: AsyncMock,
+        mock_db: AsyncMock,
+    ) -> None:
+        from app.core.database import get_db
+
+        async def _override_db():
+            yield mock_db
+
+        test_app.dependency_overrides[get_db] = _override_db
         mock_event = _make_stripe_event()
         mock_redis.set.return_value = True  # not duplicate
         with patch(
@@ -255,6 +282,17 @@ class TestWebhookEndpoint:
         assert call_kwargs["payload"] == VALID_PAYLOAD
         assert call_kwargs["sig_header"] == "t=1234,v1=valid"
         assert call_kwargs["secret"] == "whsec_placeholder_do_not_use"
+
+        mock_db.add.assert_called_once()
+        persisted = mock_db.add.call_args[0][0]
+        from app.models.webhook_event import WebhookEvent
+
+        assert isinstance(persisted, WebhookEvent)
+        assert persisted.stripe_event_id == "evt_test_001"
+        assert persisted.event_type == "payment_intent.succeeded"
+        assert persisted.payment_intent_id == "pi_test_001"
+        assert persisted.merchant_id == UUID(_TEST_MERCHANT_ID)
+        assert persisted.amount == 5000
 
     @pytest.mark.asyncio
     async def test_duplicate_event_returns_200_duplicate(

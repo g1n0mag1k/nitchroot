@@ -110,6 +110,12 @@ class Settings(BaseSettings):
     recon_window_hours: int = Field(default=2, ge=1, le=24)
     recon_settlement_lag_minutes: int = Field(default=15, ge=1)
 
+    # Comma-separated merchant UUIDs for the background worker (optional).
+    worker_merchant_ids: str = Field(
+        default="",
+        description="Comma-separated merchant UUIDs scheduled by workers.runner",
+    )
+
     @field_validator("stripe_restricted_key")
     @classmethod
     def validate_stripe_key_format(cls, v: str) -> str:

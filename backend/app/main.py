@@ -15,6 +15,7 @@ import structlog
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 
+from app.api.discrepancies import router as discrepancies_router
 from app.api.health import router as health_router
 from app.api.webhooks import router as webhook_router
 from app.core.config import get_settings
@@ -70,6 +71,7 @@ def create_app() -> FastAPI:
     # ------------------------------------------------------------------ #
     app.include_router(health_router)
     app.include_router(webhook_router)
+    app.include_router(discrepancies_router)
 
     # ------------------------------------------------------------------ #
     # Global exception handlers

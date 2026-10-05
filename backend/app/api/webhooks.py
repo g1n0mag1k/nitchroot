@@ -17,12 +17,19 @@ import stripe
 import structlog
 from fastapi import APIRouter, Depends, Header, HTTPException, Request, status
 from redis.asyncio import Redis
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
+from app.core.database import get_db
 from app.core.redis import get_redis
 from app.webhooks.deduplicator import WebhookDeduplicator
 from app.webhooks.models import NormalizedWebhookEvent
 from app.webhooks.normalizer import normalize_stripe_event
+from app.webhooks.persistence import (
+    merchant_id_from_metadata,
+    should_persist_event,
+    webhook_event_from_normalized,
+)
 
 router = APIRouter(prefix="/webhooks", tags=["webhooks"])
 log = structlog.get_logger(__name__)
@@ -30,6 +37,7 @@ log = structlog.get_logger(__name__)
 # Module-level dependency defaults (avoids ruff B008 on FastAPI Depends/Header).
 _StripeSignatureHeader = Header(None, alias="stripe-signature")
 _RedisDep = Depends(get_redis)
+_DbDep = Depends(get_db)
 
 
 @router.post(
@@ -46,6 +54,7 @@ async def ingest_stripe_webhook(
     request: Request,
     stripe_signature: str | None = _StripeSignatureHeader,
     redis: Redis = _RedisDep,  # type: ignore[type-arg]
+    db: AsyncSession = _DbDep,
 ) -> dict[str, str]:
     """Ingest and validate a Stripe webhook delivery.
 
@@ -100,5 +109,14 @@ async def ingest_stripe_webhook(
         object_id=normalized.object_id,
     )
 
-    # TODO (Prompt #5): enqueue normalized event for ledger reconciliation
+    if should_persist_event(normalized):
+        merchant_id = merchant_id_from_metadata(normalized.metadata)
+        if merchant_id is None:
+            log.warning(
+                "webhook_persist_skipped_missing_merchant",
+                stripe_event_id=normalized.stripe_event_id,
+            )
+        else:
+            db.add(webhook_event_from_normalized(normalized, merchant_id=merchant_id))
+
     return {"status": "accepted"}
