@@ -1,0 +1,1 @@
+"""SnitchRoot backend package root."""
