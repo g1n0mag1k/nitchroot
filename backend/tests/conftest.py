@@ -8,14 +8,37 @@ Provides:
   - client: async HTTPX test client
 """
 
+import os
+
+# Required before app.core.database is imported (engine is created at import time).
+os.environ.setdefault("ENVIRONMENT", "test")
+os.environ.setdefault("LOG_LEVEL", "WARNING")
+os.environ.setdefault(
+    "DATABASE_URL",
+    "postgresql+asyncpg://snitchroot:snitchroot_test@localhost:5432/snitchroot_test",
+)
+os.environ.setdefault("REDIS_URL", "redis://localhost:6379/0")
+os.environ.setdefault("STRIPE_RESTRICTED_KEY", "rk_test_placeholder_do_not_use")
+os.environ.setdefault("STRIPE_WEBHOOK_SECRET", "whsec_placeholder_do_not_use")
+os.environ.setdefault("SECRET_KEY", "a" * 64)
+
 from collections.abc import AsyncGenerator
 from unittest.mock import AsyncMock
 
 import pytest
+import pytest_asyncio
 from app.core.config import get_settings
+from app.core.database import Base
 from app.main import create_app
+from app.persistence import models as _persistence_models  # noqa: F401
 from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
+from sqlalchemy.ext.asyncio import (
+    AsyncEngine,
+    AsyncSession,
+    async_sessionmaker,
+    create_async_engine,
+)
 
 
 @pytest.fixture(autouse=True)
@@ -63,6 +86,47 @@ async def test_app(mock_redis: AsyncMock) -> AsyncGenerator[FastAPI, None]:
     app.dependency_overrides[get_redis] = lambda: mock_redis
     yield app
     app.dependency_overrides.clear()
+
+
+@pytest_asyncio.fixture(scope="session", loop_scope="session")
+async def test_engine() -> AsyncGenerator[AsyncEngine, None]:
+    """Async engine bound to the pytest session event loop."""
+    settings = get_settings()
+    eng = create_async_engine(
+        str(settings.database_url),
+        pool_pre_ping=True,
+        future=True,
+    )
+    yield eng
+    await eng.dispose()
+
+
+@pytest_asyncio.fixture(scope="session", loop_scope="session")
+async def db_schema(test_engine: AsyncEngine) -> AsyncGenerator[None, None]:
+    """Create persistence tables once per test session."""
+    async with test_engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+    yield
+    async with test_engine.begin() as conn:
+        await conn.run_sync(Base.metadata.drop_all)
+
+
+@pytest_asyncio.fixture(loop_scope="session")
+async def db_session(
+    test_engine: AsyncEngine,
+    db_schema: None,
+) -> AsyncGenerator[AsyncSession, None]:
+    """Yield a database session that rolls back after each test."""
+    session_factory = async_sessionmaker(
+        bind=test_engine,
+        class_=AsyncSession,
+        expire_on_commit=False,
+        autoflush=False,
+        autocommit=False,
+    )
+    async with session_factory() as session:
+        yield session
+        await session.rollback()
 
 
 @pytest.fixture
