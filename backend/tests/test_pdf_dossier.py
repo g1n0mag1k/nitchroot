@@ -8,16 +8,14 @@ from __future__ import annotations
 
 import hashlib
 import uuid
-from datetime import datetime, timezone
 from pathlib import Path
 
 import pytest
-
 from app.artifacts.models import DossierRequest, DossierSeverity
 from app.artifacts.pdf_builder import PdfDossierBuilder, _sha256_file, _truncate_id
 
-
 # ── helper ───────────────────────────────────────────────────────────────────
+
 
 def _make_request(
     severity: DossierSeverity = DossierSeverity.INFO,
@@ -41,6 +39,7 @@ def _make_request(
 
 
 # ── unit tests ────────────────────────────────────────────────────────────────
+
 
 class TestTruncateId:
     def test_long_id_is_truncated(self) -> None:

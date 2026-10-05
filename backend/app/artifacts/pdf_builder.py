@@ -10,16 +10,16 @@ footer on the final page for tamper-evidence.
 from __future__ import annotations
 
 import hashlib
-import structlog
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Optional
 
+import structlog
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import letter
-from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
 from reportlab.lib.units import inch
 from reportlab.platypus import (
+    Flowable,
     Paragraph,
     SimpleDocTemplate,
     Spacer,
@@ -57,7 +57,7 @@ def _truncate_id(value: str, chars: int = 16) -> str:
 class PdfDossierBuilder:
     """Builds SHA-256 signed PDF incident dossiers from reconciliation data."""
 
-    def __init__(self, output_dir: Optional[Path] = None) -> None:
+    def __init__(self, output_dir: Path | None = None) -> None:
         self._output_dir = output_dir or _OUTPUT_DIR
         self._output_dir.mkdir(parents=True, exist_ok=True)
 
@@ -93,7 +93,7 @@ class PdfDossierBuilder:
         )
         body_style = styles["BodyText"]
 
-        story = []
+        story: list[Flowable] = []
 
         # ── Cover page ────────────────────────────────────────────────────
         story.append(Paragraph("SnitchRoot Incident Dossier", title_style))
@@ -106,17 +106,26 @@ class PdfDossierBuilder:
             ["Generated", request.generated_at.strftime("%Y-%m-%d %H:%M:%S UTC")],
         ]
         cover_table = Table(cover_data, colWidths=[2 * inch, 4 * inch])
-        cover_table.setStyle(TableStyle([
-            ("BACKGROUND", (0, 0), (0, -1), colors.HexColor("#ecf0f1")),
-            ("FONTNAME", (0, 0), (-1, -1), "Helvetica"),
-            ("FONTSIZE", (0, 0), (-1, -1), 10),
-            ("ROWBACKGROUNDS", (0, 0), (-1, -1), [colors.white, colors.HexColor("#f8f9fa")]),
-            ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#bdc3c7")),
-            ("LEFTPADDING", (0, 0), (-1, -1), 8),
-            ("RIGHTPADDING", (0, 0), (-1, -1), 8),
-            ("TOPPADDING", (0, 0), (-1, -1), 5),
-            ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
-        ]))
+        cover_table.setStyle(
+            TableStyle(
+                [
+                    ("BACKGROUND", (0, 0), (0, -1), colors.HexColor("#ecf0f1")),
+                    ("FONTNAME", (0, 0), (-1, -1), "Helvetica"),
+                    ("FONTSIZE", (0, 0), (-1, -1), 10),
+                    (
+                        "ROWBACKGROUNDS",
+                        (0, 0),
+                        (-1, -1),
+                        [colors.white, colors.HexColor("#f8f9fa")],
+                    ),
+                    ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#bdc3c7")),
+                    ("LEFTPADDING", (0, 0), (-1, -1), 8),
+                    ("RIGHTPADDING", (0, 0), (-1, -1), 8),
+                    ("TOPPADDING", (0, 0), (-1, -1), 5),
+                    ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
+                ]
+            )
+        )
         story.append(cover_table)
         story.append(Spacer(1, 0.3 * inch))
 
@@ -131,25 +140,32 @@ class PdfDossierBuilder:
             ["Currency", request.probe_currency.upper() if request.probe_currency else "—"],
         ]
         probe_table = Table(probe_data, colWidths=[2 * inch, 4 * inch])
-        probe_table.setStyle(TableStyle([
-            ("BACKGROUND", (0, 0), (0, -1), colors.HexColor("#ecf0f1")),
-            ("FONTNAME", (0, 0), (-1, -1), "Helvetica"),
-            ("FONTSIZE", (0, 0), (-1, -1), 10),
-            ("ROWBACKGROUNDS", (0, 0), (-1, -1), [colors.white, colors.HexColor("#f8f9fa")]),
-            ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#bdc3c7")),
-            ("LEFTPADDING", (0, 0), (-1, -1), 8),
-            ("RIGHTPADDING", (0, 0), (-1, -1), 8),
-            ("TOPPADDING", (0, 0), (-1, -1), 5),
-            ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
-        ]))
+        probe_table.setStyle(
+            TableStyle(
+                [
+                    ("BACKGROUND", (0, 0), (0, -1), colors.HexColor("#ecf0f1")),
+                    ("FONTNAME", (0, 0), (-1, -1), "Helvetica"),
+                    ("FONTSIZE", (0, 0), (-1, -1), 10),
+                    (
+                        "ROWBACKGROUNDS",
+                        (0, 0),
+                        (-1, -1),
+                        [colors.white, colors.HexColor("#f8f9fa")],
+                    ),
+                    ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#bdc3c7")),
+                    ("LEFTPADDING", (0, 0), (-1, -1), 8),
+                    ("RIGHTPADDING", (0, 0), (-1, -1), 8),
+                    ("TOPPADDING", (0, 0), (-1, -1), 5),
+                    ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
+                ]
+            )
+        )
         story.append(probe_table)
         story.append(Spacer(1, 0.3 * inch))
 
         # ── Reconciliation section ────────────────────────────────────────
         story.append(Paragraph("Reconciliation Result", heading_style))
-        discrepancy_str = (
-            ", ".join(request.discrepancies) if request.discrepancies else "None"
-        )
+        discrepancy_str = ", ".join(request.discrepancies) if request.discrepancies else "None"
         recon_data = [
             ["Status", request.reconciliation_status],
             ["Discrepancies", discrepancy_str],
@@ -168,26 +184,37 @@ class PdfDossierBuilder:
             ],
         ]
         recon_table = Table(recon_data, colWidths=[2 * inch, 4 * inch])
-        recon_table.setStyle(TableStyle([
-            ("BACKGROUND", (0, 0), (0, -1), colors.HexColor("#ecf0f1")),
-            ("FONTNAME", (0, 0), (-1, -1), "Helvetica"),
-            ("FONTSIZE", (0, 0), (-1, -1), 10),
-            ("ROWBACKGROUNDS", (0, 0), (-1, -1), [colors.white, colors.HexColor("#f8f9fa")]),
-            ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#bdc3c7")),
-            ("LEFTPADDING", (0, 0), (-1, -1), 8),
-            ("RIGHTPADDING", (0, 0), (-1, -1), 8),
-            ("TOPPADDING", (0, 0), (-1, -1), 5),
-            ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
-        ]))
+        recon_table.setStyle(
+            TableStyle(
+                [
+                    ("BACKGROUND", (0, 0), (0, -1), colors.HexColor("#ecf0f1")),
+                    ("FONTNAME", (0, 0), (-1, -1), "Helvetica"),
+                    ("FONTSIZE", (0, 0), (-1, -1), 10),
+                    (
+                        "ROWBACKGROUNDS",
+                        (0, 0),
+                        (-1, -1),
+                        [colors.white, colors.HexColor("#f8f9fa")],
+                    ),
+                    ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#bdc3c7")),
+                    ("LEFTPADDING", (0, 0), (-1, -1), 8),
+                    ("RIGHTPADDING", (0, 0), (-1, -1), 8),
+                    ("TOPPADDING", (0, 0), (-1, -1), 5),
+                    ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
+                ]
+            )
+        )
         story.append(recon_table)
         story.append(Spacer(1, 0.5 * inch))
 
         # ── Integrity placeholder (will be replaced after first render) ───
         story.append(Paragraph("Document Integrity", heading_style))
-        story.append(Paragraph(
-            "SHA-256 hash computed after render — see footer of this page.",
-            body_style,
-        ))
+        story.append(
+            Paragraph(
+                "SHA-256 hash computed after render — see footer of this page.",
+                body_style,
+            )
+        )
 
         # ── First render (to get the hash) ───────────────────────────────
         doc = SimpleDocTemplate(
@@ -214,16 +241,18 @@ class PdfDossierBuilder:
 
         # ── Second render with hash in footer ────────────────────────────
         story.append(Spacer(1, 0.2 * inch))
-        story.append(Paragraph(
-            f"<b>SHA-256:</b> {sha256}",
-            ParagraphStyle(
-                "HashFooter",
-                parent=body_style,
-                fontSize=7,
-                textColor=colors.HexColor("#7f8c8d"),
-                fontName="Courier",
-            ),
-        ))
+        story.append(
+            Paragraph(
+                f"<b>SHA-256:</b> {sha256}",
+                ParagraphStyle(
+                    "HashFooter",
+                    parent=body_style,
+                    fontSize=7,
+                    textColor=colors.HexColor("#7f8c8d"),
+                    fontName="Courier",
+                ),
+            )
+        )
 
         doc2 = SimpleDocTemplate(
             str(output_path),
@@ -246,7 +275,7 @@ class PdfDossierBuilder:
             output_path=output_path,
             sha256_hash=final_hash,
             file_size_bytes=file_size,
-            generated_at=datetime.now(timezone.utc),
+            generated_at=datetime.now(UTC),
         )
         log.info(
             "dossier_signed",

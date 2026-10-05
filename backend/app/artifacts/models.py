@@ -1,16 +1,16 @@
 from __future__ import annotations
 
+import uuid
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from enum import StrEnum
 from pathlib import Path
-import uuid
 
 
 class DossierSeverity(StrEnum):
-    INFO = "info"           # Matched — no action needed
-    WARNING = "warning"     # Probe-only or webhook-only
-    CRITICAL = "critical"   # Discrepancy detected
+    INFO = "info"  # Matched — no action needed
+    WARNING = "warning"  # Probe-only or webhook-only
+    CRITICAL = "critical"  # Discrepancy detected
 
 
 @dataclass(frozen=True)
@@ -36,9 +36,7 @@ class DossierRequest:
     webhook_currency: str | None = None
 
     # Metadata
-    generated_at: datetime = field(
-        default_factory=lambda: datetime.now(timezone.utc)
-    )
+    generated_at: datetime = field(default_factory=lambda: datetime.now(UTC))
 
 
 @dataclass(frozen=True)
