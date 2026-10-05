@@ -19,6 +19,7 @@ from fastapi import APIRouter, Depends, Header, HTTPException, Request, status
 from redis.asyncio import Redis
 
 from app.core.config import get_settings
+from app.core.rate_limit import limiter
 from app.core.redis import get_redis
 from app.webhooks.deduplicator import WebhookDeduplicator
 from app.webhooks.models import NormalizedWebhookEvent
@@ -42,6 +43,7 @@ _RedisDep = Depends(get_redis)
         "and enqueues for reconciliation."
     ),
 )
+@limiter.limit("1000/minute")
 async def ingest_stripe_webhook(
     request: Request,
     stripe_signature: str | None = _StripeSignatureHeader,

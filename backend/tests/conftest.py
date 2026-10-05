@@ -19,6 +19,18 @@ from httpx import ASGITransport, AsyncClient
 
 
 @pytest.fixture(autouse=True)
+def reset_rate_limits() -> None:
+    """Clear slowapi counters between tests."""
+    from app.core.rate_limit import limiter
+
+    if hasattr(limiter, "reset"):
+        limiter.reset()
+    yield
+    if hasattr(limiter, "reset"):
+        limiter.reset()
+
+
+@pytest.fixture(autouse=True)
 def settings_override(monkeypatch: pytest.MonkeyPatch) -> None:
     """
     Force test-safe settings for every test.

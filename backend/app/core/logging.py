@@ -14,12 +14,52 @@ Usage:
 """
 
 import logging
+import re
 import sys
-
 import structlog
 from structlog.types import EventDict, WrappedLogger
 
 from app.core.config import Environment, get_settings
+
+_REDACTED = "<REDACTED>"
+_SENSITIVE_PATTERNS: tuple[re.Pattern[str], ...] = (
+    re.compile(r"rk_\S+"),
+    re.compile(r"sk_\S+"),
+    re.compile(r"whsec_\S+"),
+    re.compile(r"Bearer\s+\S+", re.IGNORECASE),
+)
+
+
+def _scrub_value(value: str) -> str:
+    """Replace sensitive substrings in a single string value."""
+    scrubbed = value
+    for pattern in _SENSITIVE_PATTERNS:
+        scrubbed = pattern.sub(_REDACTED, scrubbed)
+    return scrubbed
+
+
+def _scrub_sensitive_data(value: object) -> object:
+    """Recursively redact sensitive material from log event values."""
+    if isinstance(value, str):
+        return _scrub_value(value)
+    if isinstance(value, dict):
+        return {key: _scrub_sensitive_data(item) for key, item in value.items()}
+    if isinstance(value, list):
+        return [_scrub_sensitive_data(item) for item in value]
+    if isinstance(value, tuple):
+        return tuple(_scrub_sensitive_data(item) for item in value)
+    return value
+
+
+def _redact_secrets_processor(
+    _logger: WrappedLogger,
+    _method_name: str,
+    event_dict: EventDict,
+) -> EventDict:
+    """Structlog processor that scrubs secrets from all event fields."""
+    for key, value in list(event_dict.items()):
+        event_dict[key] = _scrub_sensitive_data(value)
+    return event_dict
 
 
 def _drop_color_message_key(
@@ -51,6 +91,7 @@ def configure_logging() -> None:
         structlog.stdlib.PositionalArgumentsFormatter(),
         structlog.processors.TimeStamper(fmt="iso", utc=True),
         structlog.processors.StackInfoRenderer(),
+        _redact_secrets_processor,
         _drop_color_message_key,
     ]
 
