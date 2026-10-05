@@ -19,9 +19,6 @@ from app.api.health import router as health_router
 from app.core.config import get_settings
 from app.core.logging import configure_logging, get_logger
 
-# Configure logging before anything else so all startup messages
-# are captured in structured format.
-configure_logging()
 logger = get_logger(__name__)
 
 
@@ -51,6 +48,7 @@ def create_app() -> FastAPI:
     Returns:
         A fully configured FastAPI application.
     """
+    configure_logging()
     settings = get_settings()
 
     app = FastAPI(
@@ -99,7 +97,3 @@ def create_app() -> FastAPI:
         )
 
     return app
-
-
-# Module-level app instance consumed by uvicorn and tests
-app = create_app()
