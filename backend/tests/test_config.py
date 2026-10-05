@@ -3,15 +3,15 @@ Tests for application configuration and settings validation.
 """
 
 import pytest
+from app.core.config import ProbeMode, Settings, get_settings
 from pydantic import ValidationError
-
-from app.core.config import Settings, get_settings
 
 
 def test_settings_load_from_env(settings_override: None) -> None:
     """Settings must load without error in test environment."""
     settings = get_settings()
     assert settings.environment.value == "test"
+    assert settings.probe_mode == ProbeMode.PASSIVE_PRODUCTION
 
 
 def test_stripe_full_secret_key_rejected() -> None:

@@ -30,6 +30,18 @@ class LogLevel(StrEnum):
     CRITICAL = "CRITICAL"
 
 
+class ProbeMode(StrEnum):
+    """
+    Operational mode for synthetic PaymentIntent probes.
+
+    passive_production is the safe default: no synthetic intents are executed.
+    """
+
+    PASSIVE_PRODUCTION = "passive_production"
+    SYNTHETIC_SANDBOX = "synthetic_sandbox"
+    LIVE_SYNTHETIC_REVIEW_REQUIRED = "live_synthetic_review_required"
+
+
 class Settings(BaseSettings):
     """
     SnitchRoot application settings.
@@ -101,6 +113,13 @@ class Settings(BaseSettings):
     # ------------------------------------------------------------------ #
     # Probe defaults
     # ------------------------------------------------------------------ #
+    probe_mode: ProbeMode = Field(
+        default=ProbeMode.PASSIVE_PRODUCTION,
+        description=(
+            "Controls whether synthetic PaymentIntent probes may run. "
+            "Default passive_production disables all synthetic probe execution."
+        ),
+    )
     default_probe_interval_seconds: int = Field(default=900, ge=60)
     probe_timeout_seconds: int = Field(default=30, ge=5)
 

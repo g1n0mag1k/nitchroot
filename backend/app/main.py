@@ -37,6 +37,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         "snitchroot_starting",
         version=settings.app_version,
         environment=settings.environment.value,
+        probe_mode=settings.probe_mode.value,
     )
     yield
     logger.info("snitchroot_shutdown")
