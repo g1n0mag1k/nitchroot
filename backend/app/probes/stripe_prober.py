@@ -188,6 +188,8 @@ class StripeProber:
             latency_ms=latency_ms,
             probed_at=probed_at,
             stripe_intent_id=intent_id,
+            amount=request.amount,
+            currency=request.currency,
             idempotency_key=idempotency_key,
             raw_response_hash=raw_hash,
         )
@@ -214,6 +216,8 @@ class StripeProber:
             latency_ms=latency_ms,
             probed_at=probed_at,
             stripe_intent_id=stripe_intent_id,
+            amount=request.amount,
+            currency=request.currency,
             idempotency_key=idempotency_key,
             raw_response_hash=raw_response_hash,
             failure_mode=mode,

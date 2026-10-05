@@ -68,6 +68,8 @@ class ProbeResult:
         latency_ms: Wall-clock time from probe start to terminal state.
         probed_at: UTC timestamp when the probe was initiated.
         stripe_intent_id: Stripe PaymentIntent ID if creation succeeded.
+        amount: Probe amount in minor units (cents). Used for reconciliation.
+        currency: ISO 4217 currency code used for the probe.
         idempotency_key: Idempotency key sent to Stripe for this probe.
         raw_response_hash: SHA-256 hex digest of the Stripe response body.
             Never stores the raw response — only its hash.
@@ -81,6 +83,8 @@ class ProbeResult:
     latency_ms: int
     probed_at: datetime
     stripe_intent_id: str | None = None
+    amount: int = 100
+    currency: str = "usd"
     idempotency_key: str | None = None
     raw_response_hash: str | None = None
     failure_mode: ProbeFailureMode | None = None
