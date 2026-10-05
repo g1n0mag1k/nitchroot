@@ -13,6 +13,9 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Protocol
 
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
+from sqlalchemy.ext.asyncio import AsyncSession
+
 from app.core.config import get_settings
 from app.core.logging import configure_logging, get_logger
 from app.probes.balance_transaction_client import BalanceTransactionClient
@@ -23,9 +26,11 @@ from app.reconciliation.models import (
     ReconciliationStatus,
     ReconDiscrepancy,
 )
+from app.reconciliation.persistence import discrepancy_dto_to_row
 from app.reconciliation.settlement import reconcile_with_settlement_check
 from app.webhooks.models import NormalizedWebhookEvent
-from apscheduler.schedulers.asyncio import AsyncIOScheduler
+from workers.alert_jobs import enqueue_alert_delivery
+from workers.scheduler import set_scheduler
 
 logger = get_logger(__name__)
 
@@ -90,6 +95,7 @@ async def run_reconciliation_job(
     engine: ReconciliationEngine | None = None,
     bt_client: BalanceTransactionClient | None = None,
     *,
+    db: AsyncSession | None = None,
     now: datetime | None = None,
 ) -> list[ReconDiscrepancy]:
     """
@@ -125,6 +131,10 @@ async def run_reconciliation_job(
                 severity=str(settlement_discrepancy.severity),
             )
             created.append(settlement_discrepancy)
+            if db is not None:
+                db.add(discrepancy_dto_to_row(settlement_discrepancy))
+                await db.flush()
+            enqueue_alert_delivery(settlement_discrepancy.discrepancy_id)
 
     return created
 
@@ -145,6 +155,7 @@ def main() -> None:
     asyncio.set_event_loop(loop)
 
     scheduler = AsyncIOScheduler(event_loop=loop, timezone="UTC")
+    set_scheduler(scheduler)
     scheduler.add_job(
         _scheduled_reconciliation,
         trigger="interval",

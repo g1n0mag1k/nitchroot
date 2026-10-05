@@ -8,6 +8,20 @@ Provides:
   - client: async HTTPX test client
 """
 
+import os
+
+# Required before any app import that touches Settings / the DB engine at collection time.
+os.environ.setdefault("ENVIRONMENT", "test")
+os.environ.setdefault("LOG_LEVEL", "WARNING")
+os.environ.setdefault(
+    "DATABASE_URL",
+    "postgresql+asyncpg://snitchroot:snitchroot_test@localhost:5432/snitchroot_test",
+)
+os.environ.setdefault("REDIS_URL", "redis://localhost:6379/0")
+os.environ.setdefault("STRIPE_RESTRICTED_KEY", "rk_test_placeholder_do_not_use")
+os.environ.setdefault("STRIPE_WEBHOOK_SECRET", "whsec_placeholder_do_not_use")
+os.environ.setdefault("SECRET_KEY", "a" * 64)
+
 from collections.abc import AsyncGenerator
 from unittest.mock import AsyncMock
 

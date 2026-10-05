@@ -110,6 +110,18 @@ class Settings(BaseSettings):
     recon_window_hours: int = Field(default=2, ge=1, le=24)
     recon_settlement_lag_minutes: int = Field(default=15, ge=1)
 
+    # ------------------------------------------------------------------ #
+    # Alerting (global until per-merchant config exists)
+    # ------------------------------------------------------------------ #
+    slack_webhook_url: str | None = Field(
+        default=None,
+        description="Slack incoming webhook URL for reconciliation alerts.",
+    )
+    alert_webhook_url: str | None = Field(
+        default=None,
+        description="HTTPS endpoint for signed generic alert webhooks.",
+    )
+
     @property
     def settlement_lag_minutes(self) -> int:
         """Settlement grace period before flagging missing BalanceTransactions."""
