@@ -8,6 +8,20 @@ Provides:
   - client: async HTTPX test client
 """
 
+import os
+
+# Importing the app loads the SQLAlchemy engine; set env before any app imports.
+os.environ.setdefault("ENVIRONMENT", "test")
+os.environ.setdefault("LOG_LEVEL", "WARNING")
+os.environ.setdefault(
+    "DATABASE_URL",
+    "postgresql+asyncpg://snitchroot:snitchroot_test@localhost:5432/snitchroot_test",
+)
+os.environ.setdefault("REDIS_URL", "redis://localhost:6379/0")
+os.environ.setdefault("STRIPE_RESTRICTED_KEY", "rk_test_placeholder_do_not_use")
+os.environ.setdefault("STRIPE_WEBHOOK_SECRET", "whsec_placeholder_do_not_use")
+os.environ.setdefault("SECRET_KEY", "a" * 64)
+
 from collections.abc import AsyncGenerator
 from unittest.mock import AsyncMock
 
@@ -54,13 +68,31 @@ def mock_redis() -> AsyncMock:
     return AsyncMock()
 
 
+class _NoopDbSession:
+    """Minimal async session stand-in for API tests without PostgreSQL."""
+
+    async def commit(self) -> None:
+        return None
+
+    async def rollback(self) -> None:
+        return None
+
+    async def close(self) -> None:
+        return None
+
+
 @pytest.fixture
 async def test_app(mock_redis: AsyncMock) -> AsyncGenerator[FastAPI, None]:
     """Yield a FastAPI app with Redis dependency overridden (no live Redis)."""
+    from app.core.database import get_db
     from app.core.redis import get_redis
+
+    async def override_db() -> AsyncGenerator[_NoopDbSession, None]:
+        yield _NoopDbSession()
 
     app = create_app()
     app.dependency_overrides[get_redis] = lambda: mock_redis
+    app.dependency_overrides[get_db] = override_db
     yield app
     app.dependency_overrides.clear()
 

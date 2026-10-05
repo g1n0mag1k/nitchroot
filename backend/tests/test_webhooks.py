@@ -203,6 +203,28 @@ VALID_PAYLOAD = json.dumps(
 ).encode()
 
 
+@pytest.fixture(autouse=True)
+def _stub_webhook_persistence(monkeypatch: pytest.MonkeyPatch) -> None:
+    """API unit tests do not require PostgreSQL for persistence."""
+
+    import uuid
+
+    from app.webhooks.persistence import WebhookPersistResult
+
+    class _StubPersistence:
+        async def persist_and_enqueue(self, event: object) -> WebhookPersistResult:
+            return WebhookPersistResult(
+                webhook_event_id=uuid.uuid4(),
+                reconciliation_job_id=uuid.uuid4(),
+                created=True,
+            )
+
+    monkeypatch.setattr(
+        "app.api.webhooks.WebhookPersistenceService",
+        lambda _db, _redis: _StubPersistence(),
+    )
+
+
 class TestWebhookEndpoint:
     @pytest.mark.asyncio
     async def test_missing_signature_returns_400(self, client: AsyncClient) -> None:

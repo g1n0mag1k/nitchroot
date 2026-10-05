@@ -43,3 +43,9 @@ class WebhookDeduplicator:
         else:
             log.debug("webhook_event_marked_seen", stripe_event_id=stripe_event_id)
         return is_dup
+
+    async def forget(self, stripe_event_id: str) -> None:
+        """Remove deduplication marker so Stripe may retry after a safe failure."""
+        key = f"{_KEY_PREFIX}{stripe_event_id}"
+        await self._redis.delete(key)
+        log.debug("webhook_dedup_key_cleared", stripe_event_id=stripe_event_id)

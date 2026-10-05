@@ -17,12 +17,16 @@ import stripe
 import structlog
 from fastapi import APIRouter, Depends, Header, HTTPException, Request, status
 from redis.asyncio import Redis
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
+from app.core.database import get_db
 from app.core.redis import get_redis
+from app.merchants.resolver import MerchantResolutionError
 from app.webhooks.deduplicator import WebhookDeduplicator
 from app.webhooks.models import NormalizedWebhookEvent
 from app.webhooks.normalizer import normalize_stripe_event
+from app.webhooks.persistence import WebhookPersistenceService
 
 router = APIRouter(prefix="/webhooks", tags=["webhooks"])
 log = structlog.get_logger(__name__)
@@ -30,6 +34,7 @@ log = structlog.get_logger(__name__)
 # Module-level dependency defaults (avoids ruff B008 on FastAPI Depends/Header).
 _StripeSignatureHeader = Header(None, alias="stripe-signature")
 _RedisDep = Depends(get_redis)
+_DbDep = Depends(get_db)
 
 
 @router.post(
@@ -46,6 +51,7 @@ async def ingest_stripe_webhook(
     request: Request,
     stripe_signature: str | None = _StripeSignatureHeader,
     redis: Redis = _RedisDep,  # type: ignore[type-arg]
+    db: AsyncSession = _DbDep,
 ) -> dict[str, str]:
     """Ingest and validate a Stripe webhook delivery.
 
@@ -100,5 +106,21 @@ async def ingest_stripe_webhook(
         object_id=normalized.object_id,
     )
 
-    # TODO (Prompt #5): enqueue normalized event for ledger reconciliation
+    persistence = WebhookPersistenceService(db, redis)
+    try:
+        result = await persistence.persist_and_enqueue(normalized)
+    except MerchantResolutionError:
+        await deduplicator.forget(event.id)
+        log.warning(
+            "webhook_merchant_unresolved",
+            stripe_event_id=normalized.stripe_event_id,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Unable to resolve merchant for webhook event",
+        ) from None
+
+    if not result.created:
+        return {"status": "duplicate"}
+
     return {"status": "accepted"}

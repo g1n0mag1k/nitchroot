@@ -24,10 +24,11 @@ Usage:
 
 import hashlib
 import time
-from datetime import datetime, timezone
-from uuid import UUID, uuid4
+from datetime import UTC, datetime
+from typing import Any, cast
 
 import stripe
+import structlog
 from stripe import PaymentIntent, StripeError
 
 from app.core.logging import get_logger
@@ -82,7 +83,7 @@ class StripeProber:
             An immutable ProbeResult describing the outcome.
         """
         probe_start = time.monotonic()
-        probed_at = datetime.now(tz=timezone.utc)
+        probed_at = datetime.now(tz=UTC)
         idempotency_key = f"snitchroot-probe-{request.probe_id}"
 
         log = logger.bind(
@@ -201,14 +202,14 @@ class StripeProber:
         start: float,
         mode: ProbeFailureMode,
         error: str,
-        log: object,
+        log: structlog.stdlib.BoundLogger,
         stripe_intent_id: str | None = None,
         idempotency_key: str | None = None,
         raw_response_hash: str | None = None,
     ) -> ProbeResult:
         """Construct a failed ProbeResult and emit a structured log."""
         latency_ms = int((time.monotonic() - start) * 1000)
-        getattr(log, "error")("probe_failed", failure_mode=mode, error=error)
+        log.error("probe_failed", failure_mode=mode, error=error)
         return ProbeResult(
             probe_id=request.probe_id,
             merchant_id=request.merchant_id,
@@ -243,16 +244,14 @@ def _validate_intent_schema(
         return f"intent.id '{intent.id}' does not start with '{_EXPECTED_ID_PREFIX}'"
 
     if intent.status != _EXPECTED_STATUS:
-        return (
-            f"intent.status is '{intent.status}', "
-            f"expected '{_EXPECTED_STATUS}'"
-        )
+        return f"intent.status is '{intent.status}', expected '{_EXPECTED_STATUS}'"
 
     if not intent.client_secret:
         return "intent.client_secret is missing or empty"
 
     # Verify metadata round-trip — confirms the key has write access.
-    meta = intent.metadata or {}
+    raw_meta = intent.metadata
+    meta: dict[str, Any] = cast(dict[str, Any], raw_meta) if raw_meta else {}
     if meta.get("probe_id") != str(request.probe_id):
         return (
             f"metadata.probe_id mismatch: "
@@ -276,7 +275,7 @@ def _safe_cancel(
     client: stripe.StripeClient,
     intent_id: str,
     idempotency_key: str,
-    log: object,
+    log: structlog.stdlib.BoundLogger,
 ) -> None:
     """
     Attempt to cancel a PaymentIntent, swallowing any errors.
@@ -290,7 +289,7 @@ def _safe_cancel(
             params={"cancellation_reason": "abandoned"},
         )
     except StripeError as exc:
-        getattr(log, "warning")("probe_cleanup_cancel_failed", error=str(exc))
+        log.warning("probe_cleanup_cancel_failed", error=str(exc))
 
 
 def _sha256(value: str) -> str:
