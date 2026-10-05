@@ -20,6 +20,12 @@ class DiscrepancyField(StrEnum):
     LIVEMODE = "livemode"
 
 
+class DiscrepancySeverity(StrEnum):
+    HIGH = "HIGH"
+    MEDIUM = "MEDIUM"
+    LOW = "LOW"
+
+
 @dataclass(frozen=True)
 class ReconciliationReport:
     """Immutable result of matching a probe record against a webhook event."""
@@ -42,3 +48,18 @@ class ReconciliationReport:
     def is_clean(self) -> bool:
         """True when probe and webhook agree with no discrepancies."""
         return self.status == ReconciliationStatus.MATCHED and not self.discrepancies
+
+
+@dataclass(frozen=True)
+class ReconDiscrepancy:
+    """Ledger drift detected during reconciliation (persisted by the worker)."""
+
+    discrepancy_id: uuid.UUID = field(default_factory=uuid.uuid4)
+    merchant_id: uuid.UUID = field(default_factory=uuid.uuid4)
+    webhook_event_id: uuid.UUID = field(default_factory=uuid.uuid4)
+    stripe_event_id: str = ""
+    severity: DiscrepancySeverity | str = DiscrepancySeverity.HIGH
+    description: str = ""
+    probe_id: uuid.UUID | None = None
+    stripe_intent_id: str | None = None
+    detected_at: datetime = field(default_factory=lambda: datetime.now(UTC))

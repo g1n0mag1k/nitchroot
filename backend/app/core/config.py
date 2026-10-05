@@ -110,6 +110,11 @@ class Settings(BaseSettings):
     recon_window_hours: int = Field(default=2, ge=1, le=24)
     recon_settlement_lag_minutes: int = Field(default=15, ge=1)
 
+    @property
+    def settlement_lag_minutes(self) -> int:
+        """Settlement grace period before flagging missing BalanceTransactions."""
+        return self.recon_settlement_lag_minutes
+
     @field_validator("stripe_restricted_key")
     @classmethod
     def validate_stripe_key_format(cls, v: str) -> str:
