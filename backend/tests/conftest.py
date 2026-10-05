@@ -3,16 +3,19 @@ Shared pytest fixtures for the SnitchRoot test suite.
 
 Provides:
   - settings_override: forces test environment settings
+  - mock_redis: async Redis mock (no live connections)
   - test_app: FastAPI test application instance
   - client: async HTTPX test client
 """
 
+from collections.abc import AsyncGenerator
+from unittest.mock import AsyncMock
+
 import pytest
+from app.core.config import get_settings
+from app.main import create_app
 from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
-
-from app.core.config import Settings, get_settings
-from app.main import create_app
 
 
 @pytest.fixture(autouse=True)
@@ -36,16 +39,34 @@ def settings_override(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("SECRET_KEY", "a" * 64)
     yield
     get_settings.cache_clear()
+    # Clear Redis pool cache so later tests never reuse a real/stale pool.
+    try:
+        from app.core.redis import _get_redis_pool
+
+        _get_redis_pool.cache_clear()
+    except ImportError:
+        pass
 
 
 @pytest.fixture
-def test_app() -> FastAPI:
-    """Return a fresh FastAPI application instance for testing."""
-    return create_app()
+def mock_redis() -> AsyncMock:
+    """Return an AsyncMock stand-in for redis.asyncio.Redis."""
+    return AsyncMock()
 
 
 @pytest.fixture
-async def client(test_app: FastAPI) -> AsyncClient:
+async def test_app(mock_redis: AsyncMock) -> AsyncGenerator[FastAPI, None]:
+    """Yield a FastAPI app with Redis dependency overridden (no live Redis)."""
+    from app.core.redis import get_redis
+
+    app = create_app()
+    app.dependency_overrides[get_redis] = lambda: mock_redis
+    yield app
+    app.dependency_overrides.clear()
+
+
+@pytest.fixture
+async def client(test_app: FastAPI) -> AsyncGenerator[AsyncClient, None]:
     """
     Yield an async HTTPX client wired to the test FastAPI app.
 
