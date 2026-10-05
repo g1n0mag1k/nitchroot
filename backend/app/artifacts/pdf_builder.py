@@ -216,6 +216,43 @@ class PdfDossierBuilder:
             )
         )
 
+        if request.chain_seq is not None:
+            story.append(Spacer(1, 0.3 * inch))
+            story.append(Paragraph("Tamper-Evidence", heading_style))
+            tamper_data = [
+                ["Chain sequence number", str(request.chain_seq)],
+                [
+                    "Previous dossier hash",
+                    request.prev_hash if request.prev_hash is not None else "GENESIS",
+                ],
+                [
+                    "Verification",
+                    "Run `snitchroot verify <merchant_id>` to confirm chain integrity",
+                ],
+            ]
+            tamper_table = Table(tamper_data, colWidths=[2 * inch, 4 * inch])
+            tamper_table.setStyle(
+                TableStyle(
+                    [
+                        ("BACKGROUND", (0, 0), (0, -1), colors.HexColor("#ecf0f1")),
+                        ("FONTNAME", (0, 0), (-1, -1), "Helvetica"),
+                        ("FONTSIZE", (0, 0), (-1, -1), 10),
+                        (
+                            "ROWBACKGROUNDS",
+                            (0, 0),
+                            (-1, -1),
+                            [colors.white, colors.HexColor("#f8f9fa")],
+                        ),
+                        ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#bdc3c7")),
+                        ("LEFTPADDING", (0, 0), (-1, -1), 8),
+                        ("RIGHTPADDING", (0, 0), (-1, -1), 8),
+                        ("TOPPADDING", (0, 0), (-1, -1), 5),
+                        ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
+                    ]
+                )
+            )
+            story.append(tamper_table)
+
         # ── First render (to get the hash) ───────────────────────────────
         doc = SimpleDocTemplate(
             str(output_path),

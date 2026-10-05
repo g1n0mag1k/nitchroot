@@ -35,6 +35,10 @@ class DossierRequest:
     webhook_amount: int | None = None
     webhook_currency: str | None = None
 
+    # Snapshot chain (tamper-evidence linkage across dossiers)
+    chain_seq: int | None = None
+    prev_hash: str | None = None
+
     # Metadata
     generated_at: datetime = field(default_factory=lambda: datetime.now(UTC))
 

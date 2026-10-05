@@ -16,6 +16,7 @@ from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 
 from app.api.health import router as health_router
+from app.api.merchants import router as merchants_router
 from app.api.webhooks import router as webhook_router
 from app.core.config import get_settings
 from app.core.logging import configure_logging, get_logger
@@ -69,6 +70,7 @@ def create_app() -> FastAPI:
     # Routers
     # ------------------------------------------------------------------ #
     app.include_router(health_router)
+    app.include_router(merchants_router)
     app.include_router(webhook_router)
 
     # ------------------------------------------------------------------ #
