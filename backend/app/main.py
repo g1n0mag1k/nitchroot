@@ -56,8 +56,7 @@ def create_app() -> FastAPI:
         title=settings.app_name,
         version=settings.app_version,
         description=(
-            "Zero-friction payment rail sentry and automated "
-            "ledger reconciliation sentinel."
+            "Zero-friction payment rail sentry and automated ledger reconciliation sentinel."
         ),
         docs_url="/docs" if not settings.is_production else None,
         redoc_url="/redoc" if not settings.is_production else None,

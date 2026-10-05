@@ -109,6 +109,26 @@ class Settings(BaseSettings):
     # ------------------------------------------------------------------ #
     recon_window_hours: int = Field(default=2, ge=1, le=24)
     recon_settlement_lag_minutes: int = Field(default=15, ge=1)
+    recon_window_seconds: int = Field(default=300, ge=60, le=86_400)
+    recon_processing_timeout_seconds: int = Field(default=300, ge=30, le=3600)
+    recon_max_attempts: int = Field(default=3, ge=1, le=10)
+
+    # ------------------------------------------------------------------ #
+    # Worker / scheduler
+    # ------------------------------------------------------------------ #
+    worker_poll_timeout_seconds: int = Field(default=2, ge=1, le=30)
+    worker_shutdown_grace_seconds: int = Field(default=30, ge=5, le=120)
+    scheduler_pending_scan_interval_seconds: int = Field(default=30, ge=5, le=600)
+    scheduler_stale_recovery_interval_seconds: int = Field(default=60, ge=10, le=600)
+
+    # Live synthetic Stripe probes — disabled by default in production.
+    synthetic_probe_enabled: bool = Field(
+        default=False,
+        description=(
+            "When False in production, SnitchRoot operates in passive mode "
+            "(no live PaymentIntent probe creation)."
+        ),
+    )
 
     @field_validator("stripe_restricted_key")
     @classmethod
@@ -141,4 +161,4 @@ def get_settings() -> Settings:
     Using lru_cache ensures settings are only parsed once per process.
     In tests, call get_settings.cache_clear() to reload from env.
     """
-    return Settings()  # type: ignore[call-arg]
+    return Settings()

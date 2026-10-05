@@ -15,9 +15,10 @@ Usage:
 
 import logging
 import sys
+from typing import cast
 
 import structlog
-from structlog.types import EventDict, WrappedLogger
+from structlog.types import EventDict, FilteringBoundLogger, WrappedLogger
 
 from app.core.config import Environment, get_settings
 
@@ -91,7 +92,7 @@ def configure_logging() -> None:
         logging.getLogger(name).propagate = True
 
 
-def get_logger(name: str) -> structlog.stdlib.BoundLogger:
+def get_logger(name: str) -> FilteringBoundLogger:
     """
     Return a structlog logger bound to the given module name.
 
@@ -101,4 +102,4 @@ def get_logger(name: str) -> structlog.stdlib.BoundLogger:
     Returns:
         A structlog BoundLogger instance.
     """
-    return structlog.get_logger(name)
+    return cast(FilteringBoundLogger, structlog.get_logger(name))
