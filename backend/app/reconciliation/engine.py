@@ -123,9 +123,7 @@ class ReconciliationEngine:
         if probe.currency != webhook.currency:
             discrepancies.append(DiscrepancyField.CURRENCY)
 
-        status = (
-            ReconciliationStatus.DISCREPANCY if discrepancies else ReconciliationStatus.MATCHED
-        )
+        status = ReconciliationStatus.DISCREPANCY if discrepancies else ReconciliationStatus.MATCHED
 
         report = ReconciliationReport(
             merchant_id=probe.merchant_id,

@@ -92,6 +92,13 @@ class Settings(BaseSettings):
     # ------------------------------------------------------------------ #
     # Security
     # ------------------------------------------------------------------ #
+    trusted_proxy_cidrs: str = Field(
+        default="",
+        description=(
+            "CIDR ranges for reverse proxies that may set X-Forwarded-For. "
+            "Comma-separated in TRUSTED_PROXY_CIDRS."
+        ),
+    )
     secret_key: str = Field(
         ...,
         description="64-char hex secret used for AES-256-GCM key encryption.",
@@ -109,6 +116,12 @@ class Settings(BaseSettings):
     # ------------------------------------------------------------------ #
     recon_window_hours: int = Field(default=2, ge=1, le=24)
     recon_settlement_lag_minutes: int = Field(default=15, ge=1)
+
+    @property
+    def trusted_proxy_cidr_list(self) -> tuple[str, ...]:
+        if not self.trusted_proxy_cidrs.strip():
+            return ()
+        return tuple(part.strip() for part in self.trusted_proxy_cidrs.split(",") if part.strip())
 
     @field_validator("stripe_restricted_key")
     @classmethod
@@ -141,4 +154,4 @@ def get_settings() -> Settings:
     Using lru_cache ensures settings are only parsed once per process.
     In tests, call get_settings.cache_clear() to reload from env.
     """
-    return Settings()  # type: ignore[call-arg]
+    return Settings()
