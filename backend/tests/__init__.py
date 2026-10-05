@@ -1,0 +1,1 @@
+"""SnitchRoot test suite."""
