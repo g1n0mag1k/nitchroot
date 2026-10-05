@@ -80,6 +80,22 @@ services:
         condition: service_healthy
     command: python -m workers.runner
 
+  frontend:
+    image: node:20-alpine
+    working_dir: /app
+    restart: unless-stopped
+    volumes:
+      - ./frontend:/app
+    ports:
+      - "3000:3000"
+    depends_on:
+      - api
+    environment:
+      - VITE_PREVIEW_API_PROXY=http://api:8000
+    command: >
+      sh -c "npm ci && npm run build &&
+      npm run preview -- --host 0.0.0.0 --port 3000"
+
 volumes:
   postgres_data:
   redis_data:
