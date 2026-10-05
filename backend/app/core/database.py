@@ -9,9 +9,10 @@ Provides:
 """
 
 from collections.abc import AsyncGenerator
-from typing import Any
+from functools import lru_cache
 
 from sqlalchemy.ext.asyncio import (
+    AsyncEngine,
     AsyncSession,
     async_sessionmaker,
     create_async_engine,
@@ -36,35 +37,39 @@ class Base(DeclarativeBase):
     pass
 
 
-def _build_engine() -> Any:
-    """
-    Construct the async SQLAlchemy engine from application settings.
-
-    Returns:
-        An AsyncEngine instance configured for the current environment.
-    """
+@lru_cache(maxsize=1)
+def get_engine() -> AsyncEngine:
+    """Return the process-wide async SQLAlchemy engine (lazy singleton)."""
     settings = get_settings()
     return create_async_engine(
         str(settings.database_url),
         pool_size=settings.db_pool_size,
         max_overflow=settings.db_max_overflow,
         pool_timeout=settings.db_pool_timeout,
-        pool_pre_ping=True,          # Detect stale connections before use
-        echo=settings.db_echo,       # Log SQL in development if needed
+        pool_pre_ping=True,
+        echo=settings.db_echo,
         future=True,
     )
 
 
-# Module-level singletons — created once per process
-engine = _build_engine()
+@lru_cache(maxsize=1)
+def get_session_factory() -> async_sessionmaker[AsyncSession]:
+    """Return the async session factory bound to :func:`get_engine`."""
+    return async_sessionmaker(
+        bind=get_engine(),
+        class_=AsyncSession,
+        expire_on_commit=False,
+        autoflush=False,
+        autocommit=False,
+    )
 
-AsyncSessionLocal: async_sessionmaker[AsyncSession] = async_sessionmaker(
-    bind=engine,
-    class_=AsyncSession,
-    expire_on_commit=False,  # Avoid lazy-load errors after commit
-    autoflush=False,
-    autocommit=False,
-)
+
+def __getattr__(name: str) -> AsyncEngine | async_sessionmaker[AsyncSession]:
+    if name == "engine":
+        return get_engine()
+    if name == "AsyncSessionLocal":
+        return get_session_factory()
+    raise AttributeError(name)
 
 
 async def get_db() -> AsyncGenerator[AsyncSession, None]:
@@ -83,7 +88,8 @@ async def get_db() -> AsyncGenerator[AsyncSession, None]:
             result = await db.execute(select(SomeModel))
             ...
     """
-    async with AsyncSessionLocal() as session:
+    session_factory = get_session_factory()
+    async with session_factory() as session:
         try:
             yield session
             await session.commit()
