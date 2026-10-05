@@ -261,12 +261,10 @@ def _validate_intent_schema(
 
 def _classify_stripe_error(exc: StripeError) -> ProbeFailureMode:
     """Map a StripeError subtype to a ProbeFailureMode."""
-    from stripe import AuthenticationError, APITimeoutError
+    from stripe import AuthenticationError
 
     if isinstance(exc, AuthenticationError):
         return ProbeFailureMode.AUTH_ERROR
-    if isinstance(exc, APITimeoutError):
-        return ProbeFailureMode.TIMEOUT
     return ProbeFailureMode.CREATION_ERROR
 
 
