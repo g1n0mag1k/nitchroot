@@ -9,12 +9,14 @@ from app.reconciliation.models import ReconciliationReport, ReconciliationStatus
 
 
 def test_incident_severity_mapping() -> None:
-    assert incident_severity(
-        ReconciliationReport(status=ReconciliationStatus.DISCREPANCY)
-    ) == IncidentSeverity.HIGH
-    assert incident_severity(
-        ReconciliationReport(status=ReconciliationStatus.PROBE_ONLY)
-    ) == IncidentSeverity.MEDIUM
+    assert (
+        incident_severity(ReconciliationReport(status=ReconciliationStatus.DISCREPANCY))
+        == IncidentSeverity.HIGH
+    )
+    assert (
+        incident_severity(ReconciliationReport(status=ReconciliationStatus.PROBE_ONLY))
+        == IncidentSeverity.MEDIUM
+    )
 
 
 def test_dossier_severity_mapping() -> None:
