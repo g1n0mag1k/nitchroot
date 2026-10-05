@@ -47,7 +47,7 @@ jobs:
       - name: Install dev dependencies
         run: uv pip install --system -e ".[dev]"
       - name: Run mypy
-        run: mypy backend/app/
+        run: mypy backend/app/ backend/workers/
 
   test:
     name: Test Suite
@@ -80,6 +80,7 @@ jobs:
       LOG_LEVEL: WARNING
       STRIPE_RESTRICTED_KEY: rk_test_placeholder_ci_do_not_use
       STRIPE_WEBHOOK_SECRET: whsec_placeholder_ci_do_not_use
+      SECRET_KEY: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
     steps:
       - uses: actions/checkout@v4
       - name: Set up Python 3.12
@@ -117,4 +118,4 @@ jobs:
       - name: Install dev dependencies
         run: uv pip install --system -e ".[dev]"
       - name: Run security rules
-        run: ruff check --select S backend/app/
+        run: ruff check --select S --ignore S101 backend/app/

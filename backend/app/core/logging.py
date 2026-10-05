@@ -15,6 +15,7 @@ Usage:
 
 import logging
 import sys
+from typing import cast
 
 import structlog
 from structlog.types import EventDict, WrappedLogger
@@ -101,4 +102,4 @@ def get_logger(name: str) -> structlog.stdlib.BoundLogger:
     Returns:
         A structlog BoundLogger instance.
     """
-    return structlog.get_logger(name)
+    return cast(structlog.stdlib.BoundLogger, structlog.get_logger(name))

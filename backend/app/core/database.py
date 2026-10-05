@@ -9,9 +9,9 @@ Provides:
 """
 
 from collections.abc import AsyncGenerator
-from typing import Any
 
 from sqlalchemy.ext.asyncio import (
+    AsyncEngine,
     AsyncSession,
     async_sessionmaker,
     create_async_engine,
@@ -36,7 +36,7 @@ class Base(DeclarativeBase):
     pass
 
 
-def _build_engine() -> Any:
+def _build_engine() -> AsyncEngine:
     """
     Construct the async SQLAlchemy engine from application settings.
 
@@ -49,8 +49,8 @@ def _build_engine() -> Any:
         pool_size=settings.db_pool_size,
         max_overflow=settings.db_max_overflow,
         pool_timeout=settings.db_pool_timeout,
-        pool_pre_ping=True,          # Detect stale connections before use
-        echo=settings.db_echo,       # Log SQL in development if needed
+        pool_pre_ping=True,  # Detect stale connections before use
+        echo=settings.db_echo,  # Log SQL in development if needed
         future=True,
     )
 

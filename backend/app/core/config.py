@@ -141,4 +141,4 @@ def get_settings() -> Settings:
     Using lru_cache ensures settings are only parsed once per process.
     In tests, call get_settings.cache_clear() to reload from env.
     """
-    return Settings()  # type: ignore[call-arg]
+    return Settings()

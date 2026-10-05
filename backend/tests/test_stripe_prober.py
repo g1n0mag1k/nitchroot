@@ -5,16 +5,13 @@ All Stripe API calls are mocked — no real network calls are made.
 Tests cover the full probe lifecycle including every failure mode.
 """
 
-from datetime import datetime, timezone
 from unittest.mock import MagicMock, patch
 from uuid import uuid4
 
 import pytest
 import stripe
-
 from app.probes.models import ProbeFailureMode, ProbeRequest, ProbeStatus
 from app.probes.stripe_prober import StripeProber, _sha256, _validate_intent_schema
-
 
 # --------------------------------------------------------------------------- #
 # Fixtures

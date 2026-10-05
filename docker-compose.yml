@@ -11,7 +11,7 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U snitchroot"]
+      test: ["CMD-SHELL", "pg_isready -U snitchroot -d snitchroot"]
       interval: 5s
       timeout: 5s
       retries: 10
@@ -32,17 +32,21 @@ services:
 
   api:
     build:
-      context: ./backend
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: backend/Dockerfile
       target: development
     restart: unless-stopped
+    env_file:
+      - path: .env
+        required: false
     environment:
-      - DATABASE_URL=postgresql+asyncpg://snitchroot:snitchroot_dev@postgres:5432/snitchroot
-      - REDIS_URL=redis://redis:6379/0
-      - ENVIRONMENT=development
-      - LOG_LEVEL=DEBUG
-      - STRIPE_RESTRICTED_KEY=${STRIPE_RESTRICTED_KEY}
-      - STRIPE_WEBHOOK_SECRET=${STRIPE_WEBHOOK_SECRET}
+      DATABASE_URL: postgresql+asyncpg://snitchroot:snitchroot_dev@postgres:5432/snitchroot
+      REDIS_URL: redis://redis:6379/0
+      ENVIRONMENT: development
+      LOG_LEVEL: DEBUG
+      STRIPE_RESTRICTED_KEY: ${STRIPE_RESTRICTED_KEY:-rk_test_local_placeholder}
+      STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET:-whsec_local_placeholder}
+      SECRET_KEY: ${SECRET_KEY:-0000000000000000000000000000000000000000000000000000000000000000}
     ports:
       - "8000:8000"
     volumes:
@@ -57,20 +61,30 @@ services:
         --host 0.0.0.0
         --port 8000
         --reload
-        --log-config /app/logging.json
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://127.0.0.1:8000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
 
   worker:
     build:
-      context: ./backend
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: backend/Dockerfile
       target: development
     restart: unless-stopped
+    env_file:
+      - path: .env
+        required: false
     environment:
-      - DATABASE_URL=postgresql+asyncpg://snitchroot:snitchroot_dev@postgres:5432/snitchroot
-      - REDIS_URL=redis://redis:6379/0
-      - ENVIRONMENT=development
-      - LOG_LEVEL=DEBUG
-      - STRIPE_RESTRICTED_KEY=${STRIPE_RESTRICTED_KEY}
+      DATABASE_URL: postgresql+asyncpg://snitchroot:snitchroot_dev@postgres:5432/snitchroot
+      REDIS_URL: redis://redis:6379/0
+      ENVIRONMENT: development
+      LOG_LEVEL: DEBUG
+      STRIPE_RESTRICTED_KEY: ${STRIPE_RESTRICTED_KEY:-rk_test_local_placeholder}
+      STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET:-whsec_local_placeholder}
+      SECRET_KEY: ${SECRET_KEY:-0000000000000000000000000000000000000000000000000000000000000000}
     volumes:
       - ./backend:/app
     depends_on:
@@ -79,6 +93,18 @@ services:
       redis:
         condition: service_healthy
     command: python -m workers.runner
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import sys; from workers.runner import is_ready; sys.exit(0 if is_ready() else 1)",
+        ]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
 
 volumes:
   postgres_data:
