@@ -19,6 +19,7 @@ class DossierRequest:
 
     merchant_id: uuid.UUID
     report_id: uuid.UUID = field(default_factory=uuid.uuid4)
+    incident_id: uuid.UUID | None = None
     severity: DossierSeverity = DossierSeverity.INFO
 
     # Probe fields
@@ -44,7 +45,10 @@ class DossierResult:
     """Output from the PDF dossier builder."""
 
     report_id: uuid.UUID
+    incident_id: uuid.UUID
     output_path: Path
+    manifest_path: Path
     sha256_hash: str
+    manifest_sha256: str
     file_size_bytes: int
     generated_at: datetime

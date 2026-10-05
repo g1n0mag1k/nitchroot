@@ -11,8 +11,10 @@ import uuid
 from pathlib import Path
 
 import pytest
+from app.artifacts.digest import sha256_file
 from app.artifacts.models import DossierRequest, DossierSeverity
-from app.artifacts.pdf_builder import PdfDossierBuilder, _sha256_file, _truncate_id
+from app.artifacts.pdf_builder import PdfDossierBuilder, _truncate_id
+from app.artifacts.verification import verify_dossier
 
 # ── helper ───────────────────────────────────────────────────────────────────
 
@@ -60,22 +62,22 @@ class TestSha256File:
     def test_deterministic(self, tmp_path: Path) -> None:
         f = tmp_path / "test.bin"
         f.write_bytes(b"hello snitchroot")
-        h1 = _sha256_file(f)
-        h2 = _sha256_file(f)
+        h1 = sha256_file(f)
+        h2 = sha256_file(f)
         assert h1 == h2
 
     def test_known_value(self, tmp_path: Path) -> None:
         f = tmp_path / "known.bin"
         f.write_bytes(b"")
         expected = hashlib.sha256(b"").hexdigest()
-        assert _sha256_file(f) == expected
+        assert sha256_file(f) == expected
 
     def test_different_content_different_hash(self, tmp_path: Path) -> None:
         f1 = tmp_path / "a.bin"
         f2 = tmp_path / "b.bin"
         f1.write_bytes(b"aaa")
         f2.write_bytes(b"bbb")
-        assert _sha256_file(f1) != _sha256_file(f2)
+        assert sha256_file(f1) != sha256_file(f2)
 
 
 class TestPdfDossierBuilder:
@@ -142,3 +144,24 @@ class TestPdfDossierBuilder:
         builder = PdfDossierBuilder(output_dir=tmp_path)
         result = builder.build(_make_request())
         assert result.generated_at.tzinfo is not None
+
+    def test_manifest_matches_pdf_hash(self, tmp_path: Path) -> None:
+        builder = PdfDossierBuilder(output_dir=tmp_path)
+        result = builder.build(_make_request())
+        assert result.manifest_path.exists()
+        verification = verify_dossier(result.output_path, result.manifest_path)
+        assert verification.ok is True
+
+    def test_verification_fails_after_pdf_tamper(self, tmp_path: Path) -> None:
+        builder = PdfDossierBuilder(output_dir=tmp_path)
+        result = builder.build(_make_request())
+        result.output_path.write_bytes(result.output_path.read_bytes() + b"x")
+        verification = verify_dossier(result.output_path, result.manifest_path)
+        assert verification.ok is False
+        assert verification.reason == "hash_mismatch"
+
+    def test_pdf_does_not_embed_self_referential_hash(self, tmp_path: Path) -> None:
+        builder = PdfDossierBuilder(output_dir=tmp_path)
+        result = builder.build(_make_request())
+        content = result.output_path.read_bytes()
+        assert result.sha256_hash.encode() not in content

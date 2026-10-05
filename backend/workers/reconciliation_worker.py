@@ -10,7 +10,9 @@ from typing import TYPE_CHECKING
 import redis.asyncio as aioredis
 import structlog
 from app.core.config import Settings, get_settings
+from app.incidents.service import IncidentService
 from app.persistence.enums import JobFailureCategory
+from app.persistence.models import ReconciliationJob
 from app.reconciliation.exceptions import (
     NonRetryableJobError,
     ReconciliationJobError,
@@ -45,10 +47,12 @@ class ReconciliationWorker:
         session_factory: async_sessionmaker[AsyncSession],
         redis_client: aioredis.Redis,  # type: ignore[type-arg]
         settings: Settings | None = None,
+        incident_service: IncidentService | None = None,
     ) -> None:
         self._session_factory = session_factory
         self._redis = redis_client
         self._settings = settings or get_settings()
+        self._incident_service = incident_service or IncidentService(settings=self._settings)
         self._shutdown = asyncio.Event()
         self._in_flight: set[Task[None]] = set()
 
@@ -88,6 +92,8 @@ class ReconciliationWorker:
     async def _execute_job(self, job_id: uuid.UUID) -> None:
         start = time.monotonic()
         bound_log = log.bind(job_id=str(job_id))
+        job_for_incident: ReconciliationJob | None = None
+        report_for_incident: object | None = None
         try:
             async with self._session_factory() as session:
                 async with session.begin():
@@ -116,6 +122,8 @@ class ReconciliationWorker:
                     try:
                         report = await process_reconciliation_job(session, job_id)
                         await mark_job_completed(session, claim.job, report)
+                        job_for_incident = claim.job
+                        report_for_incident = report
                         bound_log.info(
                             "reconciliation_job_completed",
                             status=report.status.value,
@@ -146,6 +154,18 @@ class ReconciliationWorker:
                             "reconciliation_job_failed_retryable",
                             error=exc.message,
                             duration_ms=int((time.monotonic() - start) * 1000),
+                        )
+
+            if job_for_incident is not None and report_for_incident is not None:
+                from app.reconciliation.models import ReconciliationReport
+
+                assert isinstance(report_for_incident, ReconciliationReport)
+                async with self._session_factory() as session:
+                    async with session.begin():
+                        await self._incident_service.handle_reconciliation_outcome(
+                            session,
+                            job_for_incident,
+                            report_for_incident,
                         )
         except Exception as exc:
             bound_log.exception(

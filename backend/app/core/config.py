@@ -121,6 +121,24 @@ class Settings(BaseSettings):
     scheduler_pending_scan_interval_seconds: int = Field(default=30, ge=5, le=600)
     scheduler_stale_recovery_interval_seconds: int = Field(default=60, ge=10, le=600)
 
+    # ------------------------------------------------------------------ #
+    # Evidence artifacts (local filesystem)
+    # ------------------------------------------------------------------ #
+    artifact_output_dir: str = Field(
+        default="var/artifacts",
+        description="Directory for incident PDF dossiers and JSON manifests.",
+    )
+
+    # ------------------------------------------------------------------ #
+    # Alerting (generic webhook channel)
+    # ------------------------------------------------------------------ #
+    alert_webhook_url: str | None = Field(
+        default=None,
+        description="Optional HTTPS URL for generic incident webhook alerts.",
+    )
+    alert_max_attempts: int = Field(default=3, ge=1, le=10)
+    alert_http_timeout_seconds: float = Field(default=10.0, ge=1.0, le=60.0)
+
     # Live synthetic Stripe probes — disabled by default in production.
     synthetic_probe_enabled: bool = Field(
         default=False,

@@ -20,7 +20,13 @@ from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
-from app.persistence.enums import JobFailureCategory, ReconciliationJobStatus
+from app.persistence.enums import (
+    AlertChannel,
+    AlertDeliveryStatus,
+    IncidentSeverity,
+    JobFailureCategory,
+    ReconciliationJobStatus,
+)
 from app.reconciliation.models import ReconciliationStatus
 
 
@@ -149,3 +155,64 @@ class ReconciliationResultRow(Base):
     )
 
     job: Mapped[ReconciliationJob] = relationship(back_populates="result")
+
+
+class ReconDiscrepancy(Base):
+    """Durable incident record for non-MATCHED reconciliation outcomes."""
+
+    __tablename__ = "recon_discrepancies"
+    __table_args__ = (
+        UniqueConstraint("reconciliation_job_id", name="uq_recon_discrepancies_job_id"),
+        Index("ix_recon_discrepancies_merchant_detected", "merchant_id", "detected_at"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    merchant_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("merchants.id"), nullable=False, index=True
+    )
+    reconciliation_job_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("reconciliation_jobs.id"), nullable=False
+    )
+    webhook_event_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("webhook_events.id"), nullable=True
+    )
+    probe_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)
+    payment_intent_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    discrepancy_type: Mapped[str] = mapped_column(String(32), nullable=False)
+    severity: Mapped[IncidentSeverity] = mapped_column(String(16), nullable=False)
+    status: Mapped[str] = mapped_column(String(32), nullable=False, default="open")
+    detected_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    dossier_path: Mapped[str | None] = mapped_column(Text, nullable=True)
+    dossier_sha256: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    manifest_path: Mapped[str | None] = mapped_column(Text, nullable=True)
+    manifest_sha256: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    dossier_error: Mapped[str | None] = mapped_column(Text, nullable=True)
+    resolved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    alert_deliveries: Mapped[list[AlertDeliveryRow]] = relationship(back_populates="incident")
+
+
+class AlertDeliveryRow(Base):
+    """Durable alert delivery attempt per incident and channel."""
+
+    __tablename__ = "alert_deliveries"
+    __table_args__ = (
+        UniqueConstraint("incident_id", "channel", name="uq_alert_deliveries_incident_channel"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    incident_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("recon_discrepancies.id"), nullable=False, index=True
+    )
+    channel: Mapped[AlertChannel] = mapped_column(String(32), nullable=False)
+    status: Mapped[AlertDeliveryStatus] = mapped_column(
+        String(32), nullable=False, default=AlertDeliveryStatus.PENDING
+    )
+    attempt_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    last_attempt_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    delivered_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    last_error: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    incident: Mapped[ReconDiscrepancy] = relationship(back_populates="alert_deliveries")
