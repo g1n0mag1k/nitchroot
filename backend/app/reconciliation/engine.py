@@ -91,7 +91,8 @@ class ReconciliationEngine:
             )
 
         # ── Both present — check window then compare fields ─────────────────
-        assert probe is not None and webhook is not None  # mypy narrowing
+        if probe is None or webhook is None:  # pragma: no cover
+            raise ValueError("Both probe and webhook must be non-None at this point.")
 
         # Window check: webhook must arrive within window of probe
         time_delta = abs(webhook.created_at - probe.probed_at)
