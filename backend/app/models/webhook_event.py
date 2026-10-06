@@ -30,7 +30,7 @@ class WebhookEvent(Base):
     object_status: Mapped[str] = mapped_column(String(100), nullable=False)
     amount: Mapped[int] = mapped_column(Integer, nullable=False)
     currency: Mapped[str] = mapped_column(String(3), nullable=False)
-    metadata: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
+    event_metadata: Mapped[dict] = mapped_column("metadata", JSONB, nullable=False, default=dict)
     stripe_created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     received_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     created_at: Mapped[datetime] = mapped_column(

@@ -117,7 +117,7 @@ async def ingest_stripe_webhook(
         object_status=normalized.object_status,
         amount=normalized.amount,
         currency=normalized.currency,
-        metadata=normalized.metadata,
+        event_metadata=normalized.metadata,
         stripe_created_at=normalized.created_at,
         received_at=datetime.now(UTC),
     )
