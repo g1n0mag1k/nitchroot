@@ -18,13 +18,13 @@ jobs:
     name: Lint & Format Check
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ea94775bb87715edf9d165 # v4.2.2
+      - uses: actions/checkout@v4 # v4.2.2
       - name: Set up Python 3.12
-        uses: actions/setup-python@82c7e631bb3adf38a9e2343cffc327df9d99d23d # v5.2.0
+        uses: actions/setup-python@v5 # v5.2.0
         with:
           python-version: "3.12"
       - name: Install uv
-        uses: astral-sh/setup-uv@2263741ca7f012853c5eb2f5737ccb9bbe91d038 # v4.2.0
+        uses: astral-sh/setup-uv@v4 # v4.2.0
         with:
           version: "latest"
       - name: Install dev dependencies
@@ -38,13 +38,13 @@ jobs:
     name: Type Check (mypy)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ea94775bb87715edf9d165 # v4.2.2
+      - uses: actions/checkout@v4 # v4.2.2
       - name: Set up Python 3.12
-        uses: actions/setup-python@82c7e631bb3adf38a9e2343cffc327df9d99d23d # v5.2.0
+        uses: actions/setup-python@v5 # v5.2.0
         with:
           python-version: "3.12"
       - name: Install uv
-        uses: astral-sh/setup-uv@2263741ca7f012853c5eb2f5737ccb9bbe91d038 # v4.2.0
+        uses: astral-sh/setup-uv@v4 # v4.2.0
         with:
           version: "latest"
       - name: Install dev dependencies
@@ -85,13 +85,13 @@ jobs:
       STRIPE_WEBHOOK_SECRET: whsec_placeholder_ci_do_not_use
       SECRET_KEY: "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ea94775bb87715edf9d165 # v4.2.2
+      - uses: actions/checkout@v4 # v4.2.2
       - name: Set up Python 3.12
-        uses: actions/setup-python@82c7e631bb3adf38a9e2343cffc327df9d99d23d # v5.2.0
+        uses: actions/setup-python@v5 # v5.2.0
         with:
           python-version: "3.12"
       - name: Install uv
-        uses: astral-sh/setup-uv@2263741ca7f012853c5eb2f5737ccb9bbe91d038 # v4.2.0
+        uses: astral-sh/setup-uv@v4 # v4.2.0
         with:
           version: "latest"
       - name: Install dev dependencies
@@ -99,7 +99,7 @@ jobs:
       - name: Run pytest with coverage
         run: pytest
       - name: Upload coverage report
-        uses: codecov/codecov-action@5a1064508300d01021e0debc69df93d056e87f0e # v4.6.0
+        uses: codecov/codecov-action@v4 # v4.6.0
         if: always()
         with:
           files: coverage.xml
@@ -109,11 +109,11 @@ jobs:
     name: Secret Scan (gitleaks)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ea94775bb87715edf9d165 # v4.2.2
+      - uses: actions/checkout@v4 # v4.2.2
         with:
           fetch-depth: 0
       - name: Run gitleaks
-        uses: gitleaks/gitleaks-action@b00a814d1b7b479e05e3ed959d1e1b4224b0a1c # v2.3.7
+        uses: gitleaks/gitleaks-action@v2 # v2.3.7
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -121,9 +121,9 @@ jobs:
     name: Secret Scan (detect-secrets)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ea94775bb87715edf9d165 # v4.2.2
+      - uses: actions/checkout@v4 # v4.2.2
       - name: Set up Python 3.12
-        uses: actions/setup-python@82c7e631bb3adf38a9e2343cffc327df9d99d23d # v5.2.0
+        uses: actions/setup-python@v5 # v5.2.0
         with:
           python-version: "3.12"
       - name: Install detect-secrets
@@ -135,13 +135,13 @@ jobs:
     name: Dependency Audit (pip-audit)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ea94775bb87715edf9d165 # v4.2.2
+      - uses: actions/checkout@v4 # v4.2.2
       - name: Set up Python 3.12
-        uses: actions/setup-python@82c7e631bb3adf38a9e2343cffc327df9d99d23d # v5.2.0
+        uses: actions/setup-python@v5 # v5.2.0
         with:
           python-version: "3.12"
       - name: Install uv
-        uses: astral-sh/setup-uv@2263741ca7f012853c5eb2f5737ccb9bbe91d038 # v4.2.0
+        uses: astral-sh/setup-uv@v4 # v4.2.0
         with:
           version: "latest"
       - name: Install runtime dependencies
@@ -166,13 +166,13 @@ jobs:
     name: Security Scan
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ea94775bb87715edf9d165 # v4.2.2
+      - uses: actions/checkout@v4 # v4.2.2
       - name: Set up Python 3.12
-        uses: actions/setup-python@82c7e631bb3adf38a9e2343cffc327df9d99d23d # v5.2.0
+        uses: actions/setup-python@v5 # v5.2.0
         with:
           python-version: "3.12"
       - name: Install uv
-        uses: astral-sh/setup-uv@2263741ca7f012853c5eb2f5737ccb9bbe91d038 # v4.2.0
+        uses: astral-sh/setup-uv@v4 # v4.2.0
         with:
           version: "latest"
       - name: Install dev dependencies
