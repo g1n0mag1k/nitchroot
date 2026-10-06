@@ -57,10 +57,17 @@ def mock_redis() -> AsyncMock:
 @pytest.fixture
 async def test_app(mock_redis: AsyncMock) -> AsyncGenerator[FastAPI, None]:
     """Yield a FastAPI app with Redis dependency overridden (no live Redis)."""
+    from app.core.database import get_db
     from app.core.redis import get_redis
+
+    mock_db = AsyncMock()
+
+    async def _override_get_db() -> AsyncGenerator[AsyncMock, None]:
+        yield mock_db
 
     app = create_app()
     app.dependency_overrides[get_redis] = lambda: mock_redis
+    app.dependency_overrides[get_db] = _override_get_db
     yield app
     app.dependency_overrides.clear()
 

@@ -13,13 +13,19 @@ Note:
 
 from __future__ import annotations
 
+from datetime import UTC, datetime
+
 import stripe
 import structlog
 from fastapi import APIRouter, Depends, Header, HTTPException, Request, status
 from redis.asyncio import Redis
+from sqlalchemy.exc import IntegrityError
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
+from app.core.database import get_db
 from app.core.redis import get_redis
+from app.models.webhook_event import WebhookEvent
 from app.webhooks.deduplicator import WebhookDeduplicator
 from app.webhooks.models import NormalizedWebhookEvent
 from app.webhooks.normalizer import normalize_stripe_event
@@ -30,6 +36,7 @@ log = structlog.get_logger(__name__)
 # Module-level dependency defaults (avoids ruff B008 on FastAPI Depends/Header).
 _StripeSignatureHeader = Header(None, alias="stripe-signature")
 _RedisDep = Depends(get_redis)
+_DbDep = Depends(get_db)
 
 
 @router.post(
@@ -46,6 +53,7 @@ async def ingest_stripe_webhook(
     request: Request,
     stripe_signature: str | None = _StripeSignatureHeader,
     redis: Redis = _RedisDep,  # type: ignore[type-arg]
+    db: AsyncSession = _DbDep,
 ) -> dict[str, str]:
     """Ingest and validate a Stripe webhook delivery.
 
@@ -100,5 +108,25 @@ async def ingest_stripe_webhook(
         object_id=normalized.object_id,
     )
 
-    # TODO (Prompt #5): enqueue normalized event for ledger reconciliation
+    webhook_row = WebhookEvent(
+        stripe_event_id=normalized.stripe_event_id,
+        event_type=str(normalized.event_type),
+        livemode=normalized.livemode,
+        api_version=normalized.api_version,
+        object_id=normalized.object_id,
+        object_status=normalized.object_status,
+        amount=normalized.amount,
+        currency=normalized.currency,
+        metadata=normalized.metadata,
+        stripe_created_at=normalized.created_at,
+        received_at=datetime.now(UTC),
+    )
+    try:
+        db.add(webhook_row)
+        await db.commit()
+    except IntegrityError:
+        await db.rollback()
+        log.warning("webhook_db_duplicate", stripe_event_id=normalized.stripe_event_id)
+        return {"status": "duplicate"}
+
     return {"status": "accepted"}
