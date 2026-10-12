@@ -99,7 +99,7 @@ jobs:
       - name: Run pytest with coverage
         run: pytest
       - name: Upload coverage report
-        uses: codecov/codecov-action@v4 # v4.6.0
+        uses: codecov/codecov-action@v7 # v4.6.0
         if: always()
         with:
           files: coverage.xml
